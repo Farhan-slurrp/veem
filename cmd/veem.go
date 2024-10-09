@@ -10,14 +10,27 @@ import (
 	"golang.org/x/term"
 )
 
+type Mode string
+
+var (
+	NORMAL Mode = "NORMAL"
+	INSERT Mode = "INSERT"
+)
+
+type Veem struct {
+	mode            Mode
+	currentCommands string
+	recordsCommands string
+}
+
 func main() {
-	fmt.Print("\033[H\033[2J")
 	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
 	if err != nil {
 		panic(err)
 	}
 	defer term.Restore(int(os.Stdin.Fd()), oldState)
 
+	fmt.Print("\033[H\033[2J")
 	t, err := tty.Open()
 	if err != nil {
 		panic(err)
@@ -48,7 +61,7 @@ func main() {
 		}
 
 		char := fmt.Sprintf("%c", r)
-		charCode := fmt.Sprintf("%X", r)
+
 		switch char {
 		case ":":
 			_, height, err := t.Size()
@@ -60,8 +73,8 @@ func main() {
 			commands = ":"
 			fmt.Print(commands)
 		default:
-			switch charCode {
-			case "D":
+			switch r {
+			case 13:
 				switch commands {
 				case ":q":
 					return
