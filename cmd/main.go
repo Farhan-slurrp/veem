@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/mattn/go-tty"
 	"golang.org/x/term"
@@ -67,9 +68,8 @@ func main() {
 				default:
 					fmt.Printf("\n")
 				}
-				continue
 			default:
-				if char == "" {
+				if strings.TrimSpace(char) == "" {
 					continue
 				}
 				if recordCommands {
