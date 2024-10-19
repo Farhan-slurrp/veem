@@ -1,13 +1,9 @@
 package main
 
 import (
-	"fmt"
 	"log"
-	"os"
-	"strings"
 
-	"github.com/mattn/go-tty"
-	"golang.org/x/term"
+	"github.com/gdamore/tcell/v2"
 )
 
 type Mode string
@@ -17,79 +13,78 @@ var (
 	INSERT Mode = "INSERT"
 )
 
+type Cursor struct {
+	x int
+	y int
+}
+
 type Veem struct {
-	mode            Mode
-	currentCommands string
-	recordsCommands string
+	mode   Mode
+	cursor Cursor
+}
+
+func NewVeem() *Veem {
+	return &Veem{
+		mode:   NORMAL,
+		cursor: Cursor{0, 0},
+	}
+}
+
+func (v *Veem) GetCursor() (int, int) {
+	return v.cursor.x, v.cursor.y
+}
+
+func (v *Veem) SetCursor(x int, y int) {
+	newCursorPos := Cursor{x, y}
+	v.cursor = newCursorPos
 }
 
 func main() {
-	oldState, err := term.MakeRaw(int(os.Stdin.Fd()))
-	if err != nil {
-		panic(err)
-	}
-	defer term.Restore(int(os.Stdin.Fd()), oldState)
+	defStyle := tcell.StyleDefault.Background(tcell.ColorReset).Foreground(tcell.ColorReset)
 
-	fmt.Print("\033[H\033[2J")
-	t, err := tty.Open()
+	s, err := tcell.NewScreen()
 	if err != nil {
-		panic(err)
+		log.Fatalf("%+v", err)
 	}
-	defer t.Close()
+	if err := s.Init(); err != nil {
+		log.Fatalf("%+v", err)
+	}
+	s.EnableMouse()
+	s.EnablePaste()
+	s.Clear()
 
-	go func() {
-		for ws := range t.SIGWINCH() {
-			fmt.Println("Resized", ws.W, ws.H)
+	ve := NewVeem()
+
+	quit := func() {
+		maybePanic := recover()
+		s.Fini()
+		if maybePanic != nil {
+			panic(maybePanic)
 		}
-	}()
-
-	clean, err := t.Raw()
-	if err != nil {
-		log.Fatal(err)
 	}
-	defer clean()
+	defer quit()
 
-	recordCommands := false
-	commands := ""
 	for {
-		r, err := t.ReadRune()
-		if err != nil {
-			log.Fatal(err)
-		}
-		if r == 0 {
-			continue
-		}
+		curX, curY := ve.GetCursor()
+		s.Show()
+		s.ShowCursor(curX, curY)
 
-		char := fmt.Sprintf("%c", r)
+		ev := s.PollEvent()
 
-		switch char {
-		case ":":
-			_, height, err := t.Size()
-			if err != nil {
-				log.Fatal(err)
-			}
-			fmt.Printf("\033[%d;%dH", height, 0)
-			recordCommands = true
-			commands = ":"
-			fmt.Print(commands)
-		default:
-			switch r {
-			case 13:
-				switch commands {
-				case ":q":
-					return
-				default:
-					fmt.Printf("\n")
-				}
-			default:
-				if strings.TrimSpace(char) == "" {
-					continue
-				}
-				if recordCommands {
-					commands += char
-				}
-				fmt.Print(char)
-
+		switch ev := ev.(type) {
+		case *tcell.EventResize:
+			s.Sync()
+		case *tcell.EventKey:
+			if ev.Key() == tcell.KeyEscape || ev.Key() == tcell.KeyCtrlC {
+				quit()
+			} else if ev.Key() == tcell.KeyEnter {
+				ve.SetCursor(0, curY+1)
+			} else if ev.Key() == tcell.KeyBackspace {
+				ve.SetCursor(curX-1, curY)
+				s.SetContent(curX-1, curY, ' ', nil, defStyle)
+			} else {
+				s.SetContent(curX, curY, ev.Rune(), nil, defStyle)
+				ve.SetCursor(curX+1, curY)
 			}
 		}
 	}
