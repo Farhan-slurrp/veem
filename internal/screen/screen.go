@@ -34,7 +34,7 @@ func initScreen(s tcell.Screen) {
 
 	_, height := s.Size()
 
-	// paint page number
+	// paint line numbers
 	for i := range height - 1 {
 		num := strconv.Itoa(i + 1)
 		s.SetContent(0, i, []rune(num)[0], nil, globals.CommentStyle)
