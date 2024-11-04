@@ -1,7 +1,9 @@
 package screen
 
 import (
+	"bufio"
 	"log"
+	"os"
 	"strconv"
 
 	"github.com/Farhan-slurrp/veem/internal/globals"
@@ -12,7 +14,7 @@ type Screen struct {
 	Current tcell.Screen
 }
 
-func NewScreen() *Screen {
+func NewScreen(file *os.File) *Screen {
 	s, err := tcell.NewScreen()
 	if err != nil {
 		log.Fatalf("%+v", err)
@@ -20,14 +22,14 @@ func NewScreen() *Screen {
 	if err := s.Init(); err != nil {
 		log.Fatalf("%+v", err)
 	}
-	initScreen(s)
+	initScreen(s, file)
 
 	return &Screen{
 		Current: s,
 	}
 }
 
-func initScreen(s tcell.Screen) {
+func initScreen(s tcell.Screen, file *os.File) {
 	s.EnableMouse()
 	s.EnablePaste()
 	s.Clear()
@@ -38,5 +40,15 @@ func initScreen(s tcell.Screen) {
 	for i := range height - 1 {
 		num := strconv.Itoa(i + 1)
 		s.SetContent(0, i, []rune(num)[0], nil, globals.CommentStyle)
+	}
+
+	// paint content
+	scanner := bufio.NewScanner(file)
+	line := 0
+	for scanner.Scan() {
+		for xIdx, _ := range scanner.Text() {
+			s.SetContent(xIdx+2, line, 'a', nil, globals.DefStyle)
+		}
+		line += 1
 	}
 }

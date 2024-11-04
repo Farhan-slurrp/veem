@@ -1,6 +1,9 @@
 package main
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/Farhan-slurrp/veem/internal/globals"
 	"github.com/Farhan-slurrp/veem/internal/screen"
 	"github.com/gdamore/tcell/v2"
@@ -19,16 +22,27 @@ type Cursor struct {
 }
 
 type Veem struct {
+	file   *os.File
 	mode   Mode
 	cursor Cursor
 	screen screen.Screen
 }
 
-func NewVeem() *Veem {
+func NewVeem(filename string) *Veem {
+	var file *os.File
+	if filename != "" {
+		file, err := os.Open(filename)
+		fmt.Println(file)
+		if err != nil {
+			panic(fmt.Sprintf("failed to read file %v", filename))
+		}
+		defer file.Close()
+	}
 	v := Veem{
+		file:   file,
 		mode:   NORMAL,
 		cursor: Cursor{2, 0},
-		screen: *screen.NewScreen(),
+		screen: *screen.NewScreen(file),
 	}
 	v.displayMode()
 	return &v
@@ -133,6 +147,10 @@ func (v *Veem) handleInsertMode(ev *tcell.EventKey) {
 }
 
 func main() {
-	v := NewVeem()
+	filename := ""
+	if len(os.Args) >= 2 {
+		filename = os.Args[1]
+	}
+	v := NewVeem(filename)
 	v.Stream()
 }
