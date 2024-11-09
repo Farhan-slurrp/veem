@@ -1,8 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"io"
+	"log"
 	"os"
+	"unicode"
 
 	"github.com/Farhan-slurrp/veem/internal/globals"
 	"github.com/Farhan-slurrp/veem/internal/screen"
@@ -30,19 +34,35 @@ type Veem struct {
 
 func NewVeem(filename string) *Veem {
 	var file *os.File
+	s := screen.NewScreen()
+	var initialContent []string
 	if filename != "" {
 		file, err := os.Open(filename)
 		fmt.Println(file)
 		if err != nil {
 			panic(fmt.Sprintf("failed to read file %v", filename))
 		}
-		defer file.Close()
+
+		rd := bufio.NewReader(file)
+		for {
+			line, err := rd.ReadString('\n')
+			if err != nil {
+				if err == io.EOF && line == "" {
+					break
+				} else if err != io.EOF {
+					log.Fatalf("read file line error: %v", err)
+				}
+			}
+			initialContent = append(initialContent, line)
+		}
 	}
+	s.InitScreen(initialContent)
+
 	v := Veem{
 		file:   file,
 		mode:   NORMAL,
-		cursor: Cursor{2, 0},
-		screen: *screen.NewScreen(file),
+		cursor: Cursor{s.StartIdx, 0},
+		screen: *s,
 	}
 	v.displayMode()
 	return &v
@@ -102,10 +122,21 @@ func (v *Veem) displayMode() {
 }
 
 func (v *Veem) handleNormalMode(ev *tcell.EventKey, quit func()) {
+	curX, curY := v.GetCursor()
+
 	if ev.Key() == tcell.KeyCtrlC {
+		v.file.Close()
 		quit()
 	} else if ev.Rune() == rune('i') || ev.Rune() == rune('I') {
 		v.changeMode(INSERT)
+	} else if ev.Rune() == rune('j') || ev.Rune() == rune('J') {
+		v.SetCursor(curX, curY+1)
+	} else if ev.Rune() == rune('k') || ev.Rune() == rune('K') {
+		v.SetCursor(curX, curY-1)
+	} else if ev.Rune() == rune('h') || ev.Rune() == rune('H') {
+		v.SetCursor(curX-1, curY)
+	} else if ev.Rune() == rune('l') || ev.Rune() == rune('L') {
+		v.SetCursor(curX+1, curY)
 	}
 }
 
@@ -124,7 +155,7 @@ func (v *Veem) handleInsertMode(ev *tcell.EventKey) {
 	} else if ev.Key() == tcell.KeyBackspace {
 		if curX-1 >= 2 {
 			v.SetCursor(curX-1, curY)
-			v.screen.Current.SetContent(curX-1, curY, ' ', nil, globals.DefStyle)
+			v.screen.ShiftContentLeft(curX, curY)
 		} else if curY-1 >= 0 {
 			lastContentIdx := 2
 			for i := 2; i < width; i++ {
@@ -136,6 +167,9 @@ func (v *Veem) handleInsertMode(ev *tcell.EventKey) {
 			v.SetCursor(lastContentIdx, curY-1)
 			v.screen.Current.SetContent(lastContentIdx, curY-1, ' ', nil, globals.DefStyle)
 		}
+	} else if unicode.IsSpace(ev.Rune()) {
+		v.SetCursor(curX+1, curY)
+		v.screen.ShiftContentRight(curX, curY)
 	} else {
 		if curX+1 > width {
 			v.screen.Current.SetSize(width+1, height)

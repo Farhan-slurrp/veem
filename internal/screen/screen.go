@@ -1,20 +1,20 @@
 package screen
 
 import (
-	"bufio"
 	"log"
-	"os"
 	"strconv"
 
 	"github.com/Farhan-slurrp/veem/internal/globals"
+	"github.com/Farhan-slurrp/veem/internal/utils"
 	"github.com/gdamore/tcell/v2"
 )
 
 type Screen struct {
-	Current tcell.Screen
+	Current  tcell.Screen
+	StartIdx int
 }
 
-func NewScreen(file *os.File) *Screen {
+func NewScreen() *Screen {
 	s, err := tcell.NewScreen()
 	if err != nil {
 		log.Fatalf("%+v", err)
@@ -22,33 +22,62 @@ func NewScreen(file *os.File) *Screen {
 	if err := s.Init(); err != nil {
 		log.Fatalf("%+v", err)
 	}
-	initScreen(s, file)
-
-	return &Screen{
-		Current: s,
-	}
-}
-
-func initScreen(s tcell.Screen, file *os.File) {
 	s.EnableMouse()
 	s.EnablePaste()
 	s.Clear()
 
-	_, height := s.Size()
+	return &Screen{
+		Current:  s,
+		StartIdx: 2,
+	}
+}
 
-	// paint line numbers
-	for i := range height - 1 {
-		num := strconv.Itoa(i + 1)
-		s.SetContent(0, i, []rune(num)[0], nil, globals.CommentStyle)
+func (s *Screen) InitScreen(initialContent []string) {
+	width, height := s.Current.Size()
+	s.StartIdx = utils.GetNumDigits(height) + 1
+
+	if len(initialContent) > height {
+		s.Current.SetSize(width, len(initialContent))
 	}
 
-	// paint content
-	scanner := bufio.NewScanner(file)
-	line := 0
-	for scanner.Scan() {
-		for xIdx, _ := range scanner.Text() {
-			s.SetContent(xIdx+2, line, 'a', nil, globals.DefStyle)
+	// paint line numbers
+	go func() {
+		for i := range height - 1 {
+			num := strconv.Itoa(i + 1)
+			for y, char := range num {
+				s.Current.SetContent(y, i, char, nil, globals.CommentStyle)
+			}
 		}
-		line += 1
+	}()
+
+	// paint content
+	go func() {
+		for yIdx, line := range initialContent {
+			for xIdx, char := range line {
+				s.Current.SetContent(xIdx+s.StartIdx, yIdx, char, nil, globals.DefStyle)
+			}
+		}
+	}()
+}
+
+func (s *Screen) ShiftContentRight(curX int, curY int) {
+	width, _ := s.Current.Size()
+	currRune, _, _, _ := s.Current.GetContent(curX, curY)
+	s.Current.SetContent(curX, curY, ' ', nil, globals.DefStyle)
+	for i := curX; i < width; i++ {
+		nextRune, _, _, _ := s.Current.GetContent(i+1, curY)
+		s.Current.SetContent(i+1, curY, currRune, nil, globals.DefStyle)
+		currRune = nextRune
+	}
+}
+
+func (s *Screen) ShiftContentLeft(curX int, curY int) {
+	width, _ := s.Current.Size()
+	currRune, _, _, _ := s.Current.GetContent(curX, curY)
+	s.Current.SetContent(curX, curY, ' ', nil, globals.DefStyle)
+	for i := width - 1; i <= curX; i-- {
+		prevRune, _, _, _ := s.Current.GetContent(i-1, curY)
+		s.Current.SetContent(i-1, curY, currRune, nil, globals.DefStyle)
+		currRune = prevRune
 	}
 }
