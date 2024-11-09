@@ -60,10 +60,10 @@ func (s *Screen) InitScreen(initialContent []string) {
 	}()
 }
 
-func (s *Screen) ShiftContentRight(curX int, curY int) {
+func (s *Screen) ShiftContentRight(curX int, curY int, content rune) {
 	width, _ := s.Current.Size()
 	currRune, _, _, _ := s.Current.GetContent(curX, curY)
-	s.Current.SetContent(curX, curY, ' ', nil, globals.DefStyle)
+	s.Current.SetContent(curX, curY, content, nil, globals.DefStyle)
 	for i := curX; i < width; i++ {
 		nextRune, _, _, _ := s.Current.GetContent(i+1, curY)
 		s.Current.SetContent(i+1, curY, currRune, nil, globals.DefStyle)
@@ -71,13 +71,13 @@ func (s *Screen) ShiftContentRight(curX int, curY int) {
 	}
 }
 
-func (s *Screen) ShiftContentLeft(curX int, curY int) {
+func (s *Screen) ShiftContentLeft(curX int, curY int, content rune) {
 	width, _ := s.Current.Size()
 	currRune, _, _, _ := s.Current.GetContent(curX, curY)
-	s.Current.SetContent(curX, curY, ' ', nil, globals.DefStyle)
-	for i := width - 1; i <= curX; i-- {
-		prevRune, _, _, _ := s.Current.GetContent(i-1, curY)
+	s.Current.SetContent(curX, curY, content, nil, globals.DefStyle)
+	for i := curX; i < width; i++ {
+		nextRune, _, _, _ := s.Current.GetContent(i+1, curY)
 		s.Current.SetContent(i-1, curY, currRune, nil, globals.DefStyle)
-		currRune = prevRune
+		currRune = nextRune
 	}
 }

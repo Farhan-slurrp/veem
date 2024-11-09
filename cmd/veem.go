@@ -155,7 +155,7 @@ func (v *Veem) handleInsertMode(ev *tcell.EventKey) {
 	} else if ev.Key() == tcell.KeyBackspace {
 		if curX-1 >= 2 {
 			v.SetCursor(curX-1, curY)
-			v.screen.ShiftContentLeft(curX, curY)
+			v.screen.ShiftContentLeft(curX, curY, ' ')
 		} else if curY-1 >= 0 {
 			lastContentIdx := 2
 			for i := 2; i < width; i++ {
@@ -169,13 +169,13 @@ func (v *Veem) handleInsertMode(ev *tcell.EventKey) {
 		}
 	} else if unicode.IsSpace(ev.Rune()) {
 		v.SetCursor(curX+1, curY)
-		v.screen.ShiftContentRight(curX, curY)
+		v.screen.ShiftContentRight(curX, curY, ' ')
 	} else {
 		if curX+1 > width {
 			v.screen.Current.SetSize(width+1, height)
 			v.screen.Current.Sync()
 		}
-		v.screen.Current.SetContent(curX, curY, ev.Rune(), nil, globals.DefStyle)
+		v.screen.ShiftContentRight(curX, curY, ev.Rune())
 		v.SetCursor(curX+1, curY)
 	}
 }
