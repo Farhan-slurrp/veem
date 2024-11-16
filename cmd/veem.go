@@ -8,23 +8,23 @@ import (
 	"github.com/Farhan-slurrp/veem/internal/cursor"
 	"github.com/Farhan-slurrp/veem/internal/globals"
 	"github.com/Farhan-slurrp/veem/internal/screen"
+	"github.com/Farhan-slurrp/veem/internal/utils"
 	"github.com/gdamore/tcell/v2"
 )
 
 type Veem struct {
-	file   *os.File
+	path   string
 	mode   constants.Mode
 	cursor cursor.Cursor
 	screen screen.Screen
 }
 
-func NewVeem(filename string) *Veem {
-	var file *os.File
-	s := screen.NewScreen(filename)
+func NewVeem(path string) *Veem {
+	s := screen.NewScreen(path)
 	s.InitScreen(constants.NORMAL)
 
 	return &Veem{
-		file:   file,
+		path:   path,
 		mode:   constants.NORMAL,
 		cursor: *cursor.NewCursor(s.StartIdx, 0),
 		screen: *s,
@@ -39,7 +39,6 @@ func (v *Veem) Stream() {
 			panic(maybePanic)
 		}
 	}
-
 	for {
 		curX, curY := v.cursor.GetCursor()
 		v.screen.Current.Show()
@@ -71,8 +70,9 @@ func (v *Veem) handleNormalMode(ev *tcell.EventKey, quit func()) {
 	curX, curY := v.cursor.GetCursor()
 
 	if ev.Key() == tcell.KeyCtrlC {
-		v.file.Close()
 		quit()
+	} else if ev.Key() == tcell.KeyCtrlS {
+		v.saveFile()
 	} else if ev.Rune() == rune('i') || ev.Rune() == rune('I') {
 		v.changeMode(constants.INSERT)
 	} else if ev.Rune() == rune('j') || ev.Rune() == rune('J') {
@@ -115,6 +115,23 @@ func (v *Veem) handleInsertMode(ev *tcell.EventKey) {
 	} else {
 		v.screen.ShiftContentRight(curX, curY, ev.Rune())
 		v.cursor.SetCursor(curX+1, curY)
+	}
+}
+
+func (v *Veem) saveFile() {
+	width, height := v.screen.Current.Size()
+	lines := make([]string, height-1)
+	for yIdx := range height - 1 {
+		for xIdx := range width {
+
+			currRune, _, _, _ := v.screen.Current.GetContent(xIdx+v.screen.StartIdx, yIdx)
+			lines[yIdx] += string(currRune)
+		}
+	}
+
+	err := utils.WriteLines(lines, v.path)
+	if err != nil {
+		panic(err)
 	}
 }
 

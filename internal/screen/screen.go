@@ -1,11 +1,8 @@
 package screen
 
 import (
-	"bufio"
 	"fmt"
-	"io"
 	"log"
-	"os"
 	"strconv"
 
 	"github.com/Farhan-slurrp/veem/internal/constants"
@@ -17,10 +14,10 @@ import (
 type Screen struct {
 	Current  tcell.Screen
 	StartIdx int
-	filename string
+	path     string
 }
 
-func NewScreen(filename string) *Screen {
+func NewScreen(path string) *Screen {
 	s, err := tcell.NewScreen()
 	if err != nil {
 		log.Fatalf("%+v", err)
@@ -35,7 +32,7 @@ func NewScreen(filename string) *Screen {
 	return &Screen{
 		Current:  s,
 		StartIdx: 2,
-		filename: filename,
+		path:     path,
 	}
 }
 
@@ -53,27 +50,16 @@ func (s *Screen) InitScreen(mode constants.Mode) {
 	}
 
 	// paint content
-	if s.filename != "" {
-		file, err := os.Open(s.filename)
+	if s.path != "" {
+		lines, err := utils.ReadLines(s.path)
 		if err != nil {
-			panic(fmt.Sprintf("failed to read file %v", s.filename))
+			panic(fmt.Sprintf("failed to read file %v", s.path))
 		}
 
-		rd := bufio.NewReader(file)
-		yIdx := 0
-		for {
-			line, err := rd.ReadString('\n')
-			if err != nil {
-				if err == io.EOF && line == "" {
-					break
-				} else if err != io.EOF {
-					log.Fatalf("read file line error: %v", err)
-				}
-			}
+		for yIdx, line := range lines {
 			for xIdx, char := range line {
 				s.Current.SetContent(xIdx+s.StartIdx, yIdx, char, nil, globals.DefStyle)
 			}
-			yIdx += 1
 		}
 	}
 
