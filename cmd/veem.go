@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"os"
 	"unicode"
 
@@ -20,13 +21,27 @@ type Veem struct {
 }
 
 func NewVeem(path string) *Veem {
-	s := screen.NewScreen(path)
+	var lines []string
+	if path != "" {
+		file, err := os.Open(path)
+		if err != nil {
+			panic(err)
+		}
+		defer file.Close()
+
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			lines = append(lines, scanner.Text())
+		}
+	}
+
+	s := screen.NewScreen(lines)
 	s.InitScreen(constants.NORMAL)
 
 	return &Veem{
 		path:   path,
 		mode:   constants.NORMAL,
-		cursor: *cursor.NewCursor(s.StartIdx, 0),
+		cursor: *cursor.NewCursor(s.StartXIdx, 0),
 		screen: *s,
 	}
 }
@@ -67,8 +82,6 @@ func (v *Veem) changeMode(mode constants.Mode) {
 }
 
 func (v *Veem) handleNormalMode(ev *tcell.EventKey, quit func()) {
-	curX, curY := v.cursor.GetCursor()
-
 	if ev.Key() == tcell.KeyCtrlC {
 		quit()
 	} else if ev.Key() == tcell.KeyCtrlS {
@@ -76,13 +89,13 @@ func (v *Veem) handleNormalMode(ev *tcell.EventKey, quit func()) {
 	} else if ev.Rune() == rune('i') || ev.Rune() == rune('I') {
 		v.changeMode(constants.INSERT)
 	} else if ev.Rune() == rune('j') || ev.Rune() == rune('J') {
-		v.cursor.SetCursor(curX, curY+1)
+		v.moveDown()
 	} else if ev.Rune() == rune('k') || ev.Rune() == rune('K') {
-		v.cursor.SetCursor(curX, curY-1)
+		v.moveUp()
 	} else if ev.Rune() == rune('h') || ev.Rune() == rune('H') {
-		v.cursor.SetCursor(curX-1, curY)
+		v.moveLeft()
 	} else if ev.Rune() == rune('l') || ev.Rune() == rune('L') {
-		v.cursor.SetCursor(curX+1, curY)
+		v.moveRight()
 	}
 }
 
@@ -93,14 +106,22 @@ func (v *Veem) handleInsertMode(ev *tcell.EventKey) {
 	if ev.Key() == tcell.KeyEscape {
 		v.changeMode(constants.NORMAL)
 	} else if ev.Key() == tcell.KeyEnter {
-		v.cursor.SetCursor(v.screen.StartIdx, curY+1)
+		v.cursor.SetCursor(v.screen.StartXIdx, curY+1)
+	} else if ev.Key() == tcell.KeyUp {
+		v.moveUp()
+	} else if ev.Key() == tcell.KeyDown {
+		v.moveDown()
+	} else if ev.Key() == tcell.KeyRight {
+		v.moveRight()
+	} else if ev.Key() == tcell.KeyLeft {
+		v.moveLeft()
 	} else if ev.Key() == tcell.KeyBackspace {
-		if curX-1 >= v.screen.StartIdx {
+		if curX-1 >= v.screen.StartXIdx {
 			v.cursor.SetCursor(curX-1, curY)
 			v.screen.ShiftContentLeft(curX, curY, ' ')
 		} else if curY-1 >= 0 {
-			lastContentIdx := v.screen.StartIdx
-			for i := v.screen.StartIdx; i < width; i++ {
+			lastContentIdx := v.screen.StartXIdx
+			for i := v.screen.StartXIdx; i < width; i++ {
 				currRune, _, _, _ := v.screen.Current.GetContent(i, curY-1)
 				if currRune != ' ' {
 					lastContentIdx = i
@@ -118,13 +139,53 @@ func (v *Veem) handleInsertMode(ev *tcell.EventKey) {
 	}
 }
 
+func (v *Veem) moveUp() {
+	nextY := v.cursor.Y - 1
+	if nextY < v.screen.StartYIdx {
+		if v.screen.StartYIdx == 0 {
+			return
+		}
+		v.screen.StartYIdx = nextY
+		v.screen.InitScreen(v.mode)
+	}
+	v.cursor.SetCursor(v.cursor.X, nextY)
+}
+
+func (v *Veem) moveDown() {
+	_, height := v.screen.Current.Size()
+	nextY := v.cursor.Y + 1
+	if nextY > height-2 {
+		v.screen.StartYIdx += 1
+		v.screen.InitScreen(v.mode)
+		nextY = height - 2
+	}
+	v.cursor.SetCursor(v.cursor.X, nextY)
+}
+
+func (v *Veem) moveRight() {
+	nextX := v.cursor.X + 1
+	width, _ := v.screen.Current.Size()
+	if nextX > width-1 {
+		return
+	}
+	v.cursor.SetCursor(nextX, v.cursor.Y)
+}
+
+func (v *Veem) moveLeft() {
+	nextX := v.cursor.X - 1
+	if nextX < v.screen.StartXIdx {
+		return
+	}
+	v.cursor.SetCursor(nextX, v.cursor.Y)
+}
+
 func (v *Veem) saveFile() {
 	width, height := v.screen.Current.Size()
 	lines := make([]string, height-1)
 	for yIdx := range height - 1 {
 		for xIdx := range width {
 
-			currRune, _, _, _ := v.screen.Current.GetContent(xIdx+v.screen.StartIdx, yIdx)
+			currRune, _, _, _ := v.screen.Current.GetContent(xIdx+v.screen.StartXIdx, yIdx)
 			lines[yIdx] += string(currRune)
 		}
 	}

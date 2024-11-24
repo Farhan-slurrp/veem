@@ -12,12 +12,13 @@ import (
 )
 
 type Screen struct {
-	Current  tcell.Screen
-	StartIdx int
-	path     string
+	Current        tcell.Screen
+	StartXIdx      int
+	StartYIdx      int
+	initialContent []string
 }
 
-func NewScreen(path string) *Screen {
+func NewScreen(lines []string) *Screen {
 	s, err := tcell.NewScreen()
 	if err != nil {
 		log.Fatalf("%+v", err)
@@ -30,35 +31,31 @@ func NewScreen(path string) *Screen {
 	s.Clear()
 
 	return &Screen{
-		Current:  s,
-		StartIdx: 2,
-		path:     path,
+		Current:        s,
+		StartXIdx:      2,
+		StartYIdx:      0,
+		initialContent: lines,
 	}
 }
 
 func (s *Screen) InitScreen(mode constants.Mode) {
 	_, height := s.Current.Size()
-	s.StartIdx = utils.GetNumDigits(height) + 1
+	s.StartXIdx = utils.GetNumDigits(height) + 1
 	s.Current.Clear()
 
 	// paint line numbers
 	for i := range height - 1 {
-		num := strconv.Itoa(i + 1)
+		num := strconv.Itoa(i + s.StartYIdx + 1)
 		for y, char := range num {
 			s.Current.SetContent(y, i, char, nil, globals.CommentStyle)
 		}
 	}
 
 	// paint content
-	if s.path != "" {
-		lines, err := utils.ReadLines(s.path)
-		if err != nil {
-			panic(fmt.Sprintf("failed to read file %v", s.path))
-		}
-
-		for yIdx, line := range lines {
+	if len(s.initialContent) > 0 {
+		for yIdx, line := range s.initialContent[s.StartYIdx : height-1] {
 			for xIdx, char := range line {
-				s.Current.SetContent(xIdx+s.StartIdx, yIdx, char, nil, globals.DefStyle)
+				s.Current.SetContent(xIdx+s.StartXIdx, yIdx, char, nil, globals.DefStyle)
 			}
 		}
 	}
