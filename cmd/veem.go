@@ -106,7 +106,8 @@ func (v *Veem) handleInsertMode(ev *tcell.EventKey) {
 	if ev.Key() == tcell.KeyEscape {
 		v.changeMode(constants.NORMAL)
 	} else if ev.Key() == tcell.KeyEnter {
-		v.cursor.SetCursor(v.screen.StartXIdx, curY+1)
+		v.screen.AddNewContent("")
+		v.moveDown()
 	} else if ev.Key() == tcell.KeyUp {
 		v.moveUp()
 	} else if ev.Key() == tcell.KeyDown {
@@ -154,6 +155,9 @@ func (v *Veem) moveUp() {
 func (v *Veem) moveDown() {
 	_, height := v.screen.Current.Size()
 	nextY := v.cursor.Y + 1
+	if nextY > len(v.screen.InitialContent)-1 {
+		return
+	}
 	if nextY > height-2 {
 		v.screen.StartYIdx += 1
 		v.screen.InitScreen(v.mode)

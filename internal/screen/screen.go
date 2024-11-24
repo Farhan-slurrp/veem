@@ -15,7 +15,7 @@ type Screen struct {
 	Current        tcell.Screen
 	StartXIdx      int
 	StartYIdx      int
-	initialContent []string
+	InitialContent []string
 }
 
 func NewScreen(lines []string) *Screen {
@@ -30,11 +30,15 @@ func NewScreen(lines []string) *Screen {
 	s.EnablePaste()
 	s.Clear()
 
+	if len(lines) == 0 {
+		lines = append(lines, "")
+	}
+
 	return &Screen{
 		Current:        s,
 		StartXIdx:      2,
 		StartYIdx:      0,
-		initialContent: lines,
+		InitialContent: lines,
 	}
 }
 
@@ -44,7 +48,7 @@ func (s *Screen) InitScreen(mode constants.Mode) {
 	s.Current.Clear()
 
 	// paint line numbers
-	for i := range height - 1 {
+	for i := range len(s.InitialContent) {
 		num := strconv.Itoa(i + s.StartYIdx + 1)
 		for y, char := range num {
 			s.Current.SetContent(y, i, char, nil, globals.CommentStyle)
@@ -52,8 +56,8 @@ func (s *Screen) InitScreen(mode constants.Mode) {
 	}
 
 	// paint content
-	if len(s.initialContent) > 0 {
-		for yIdx, line := range s.initialContent[s.StartYIdx : height-1] {
+	if len(s.InitialContent) > 0 {
+		for yIdx, line := range s.InitialContent[s.StartYIdx:] {
 			for xIdx, char := range line {
 				s.Current.SetContent(xIdx+s.StartXIdx, yIdx, char, nil, globals.DefStyle)
 			}
@@ -93,4 +97,8 @@ func (s *Screen) ShiftContentLeft(curX int, curY int, content rune) {
 		s.Current.SetContent(i-1, curY, currRune, nil, globals.DefStyle)
 		currRune = nextRune
 	}
+}
+
+func (s *Screen) AddNewContent(content string) {
+	s.InitialContent = append(s.InitialContent, content)
 }
